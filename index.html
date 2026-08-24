@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThreatIntel AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body class="bg-slate-900 text-gray-100 p-4">
+    <h1 class="text-2xl font-bold text-red-500 mb-4">🛡️ ThreatIntel AI</h1>
+    <input id="apiKey" type="password" placeholder="Gemini API Key" class="w-full bg-slate-800 p-2 mb-2 rounded border border-slate-700">
+    <textarea id="rawEmail" rows="6" placeholder="Paste headers + email body..." class="w-full bg-slate-800 p-2 mb-2 rounded border border-slate-700 text-xs font-mono"></textarea>
+    <button onclick="runAnalysis()" class="w-full bg-red-600 p-2 font-bold rounded mb-4">Analyze Threat</button>
+    <div id="res" class="bg-slate-800 p-4 rounded mb-4 hidden">
+        <div class="text-xl font-bold" id="score"></div>
+        <div class="text-xs text-red-300" id="flags"></div>
+    </div>
+    <div id="map" class="h-64 rounded border border-slate-700"></div>
+    <script>
+        let map = L.map('map').setView([20, 0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        let markers = L.layerGroup().addTo(map);
+        async function runAnalysis() {
+            const res = await fetch('/analyze', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ raw_email: document.getElementById('rawEmail').value, api_key: document.getElementById('apiKey').value })
+            });
+            const data = await res.json();
+            document.getElementById('res').classList.remove('hidden');
+            document.getElementById('score').innerText = data.forensics.category + " - Score: " + data.forensics.threat_score + "/100";
+            document.getElementById('flags').innerText = "Flags: " + data.forensics.red_flags.join(", ");
+            markers.clearLayers();
+            let pts = data.hops.map(h => [h.lat, h.lon]);
+            pts.forEach(p => L.marker(p).addTo(markers));
+            if(pts.length) { L.polyline(pts, {color:'red'}).addTo(markers); map.fitBounds(L.latLngBounds(pts)); }
+        }
+    </script>
+</body>
+</html>
